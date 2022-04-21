@@ -1,0 +1,88 @@
+---------------------------------------------
+Log Analytics Queries:
+
+How to navigate:
+ - Login to portal.azure.com
+ - Search for Log Analytics.
+ - Select digital-prod-loganalytics
+ - Click on Log Search
+ - Click on Analytics icon.
+
+---------------------------------------------
+
+To get requests by clientIP.
+AzureDiagnostics
+| summarize AggregatedValue = count() by clientIP_s
+
+---------------------------------------------
+App Insights queries:
+
+How to navigate:
+ - Login to portal.azure.com
+ - Search for Application Insights.
+ - Select the primary region
+ - Click on the Search icon.
+ - Click on the Analytics icon.
+---------------------------------------------
+
+1. If you don't know the Azure table to search for, use this:
+search in (*) "<expression you're looking for>" 
+
+e.g. search in (*) "www.<website>.com" | summarize count() by $table 
+gives the list of tables that have the given expression along w/ the counts.
+
+2. Find
+find in (AzureDiagnostics) where * has "www.<website>.com"
+ project pack(*)
+ 
+ // this query calculates request duration percentiles and count by name
+let start=now(-1d);
+let end=now();
+let timeGrain=1h;
+let dataset=requests
+// additional filters can be applied here
+| where timestamp > start and timestamp < end 
+| where url contains "www.<website>.com"
+| where operation_Name startswith "GET <URL>";
+dataset
+// change 'operation_Name' on the below line to segment by a different property
+| summarize sum(itemCount), avg(duration) by operation_Name, bin(timestamp, timeGrain)
+// calculate duration percentiles and count for all requests (overall)
+| render timechart
+
+-----------------------------------
+
+// this query calculates request duration percentiles and count by name
+let start=now(-1d);
+let end=now();
+let timeGrain=1h;
+let dataset=requests
+// additional filters can be applied here
+| where timestamp > start and timestamp < end 
+| where url contains "www.<website>.com"
+| where operation_Name startswith "GET <URL>";
+dataset
+// change 'operation_Name' on the below line to segment by a different property
+| summarize sum(itemCount), avg(duration) by operation_Name, bin(timestamp, timeGrain)
+// calculate duration percentiles and count for all requests (overall)
+| render timechart
+
+
+in the chart, select "don't split" on the Operation_Name dropdown, and then on the y-axis (defaulted as sum_ItemCount) check all metrics (sum_count and avg_duration)
+-------------------------------
+
+Query to get 500 errors
+
+let start=now(-1h);
+let end=now();
+let timeGrain=1m;
+
+requests
+// additional filters can be applied here
+| where timestamp > start and timestamp < end
+| where url contains "www.<website>.com"
+//| where operation_Name startswith "GET <URL>";
+| where (resultCode startswith "5" )
+| summarize count() by url , resultCode
+| sort by count_ desc
+| take 50
